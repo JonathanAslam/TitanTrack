@@ -39,7 +39,8 @@ export function CourseResults({ courses, addedSectionIds, onAdd }: CourseResults
                 <th>Time</th>
                 <th>Location</th>
                 <th>Instructor</th>
-                <th>Seats</th>
+                <th>Enrollment</th>
+                <th>Waitlist</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -62,7 +63,14 @@ export function CourseResults({ courses, addedSectionIds, onAdd }: CourseResults
                       {section.seatsTaken}/{section.seatsTotal}
                     </td>
                     <td>
-                      <span className={`status-badge status-${section.status}`}>{section.status}</span>
+                      {section.waitlistTotal > 0
+                        ? `${section.waitlistTaken}/${section.waitlistTotal}`
+                        : '—'}
+                    </td>
+                    <td>
+                      <span className={`status-badge status-${section.status}`}>
+                        {section.status}
+                      </span>
                     </td>
                     <td>
                       <button

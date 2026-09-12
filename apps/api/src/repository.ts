@@ -19,6 +19,8 @@ interface SectionRow {
   instructor: string;
   seats_total: number;
   seats_taken: number;
+  waitlist_total: number;
+  waitlist_taken: number;
   status: string;
 }
 
@@ -30,7 +32,11 @@ interface MeetingRow {
   location: string;
 }
 
-function assembleCourses(courseRows: CourseRow[], sectionRows: SectionRow[], meetingRows: MeetingRow[]): Course[] {
+function assembleCourses(
+  courseRows: CourseRow[],
+  sectionRows: SectionRow[],
+  meetingRows: MeetingRow[],
+): Course[] {
   const meetingsBySection = new Map<string, Meeting[]>();
   for (const m of meetingRows) {
     const list = meetingsBySection.get(m.section_id) ?? [];
@@ -53,6 +59,8 @@ function assembleCourses(courseRows: CourseRow[], sectionRows: SectionRow[], mee
       meetings: meetingsBySection.get(s.id) ?? [],
       seatsTotal: s.seats_total,
       seatsTaken: s.seats_taken,
+      waitlistTotal: s.waitlist_total,
+      waitlistTaken: s.waitlist_taken,
       status: s.status as Section['status'],
     });
     sectionsByCourse.set(s.course_id, list);
@@ -76,13 +84,75 @@ export async function getTerms(): Promise<Term[]> {
   return rows;
 }
 
-export async function getCourses(): Promise<Course[]> {
-  const [courseRows, sectionRows, meetingRows] = await Promise.all([
-    pool.query<CourseRow>('SELECT * FROM courses ORDER BY subject, course_number'),
-    pool.query<SectionRow>('SELECT * FROM sections ORDER BY section_number'),
-    pool.query<MeetingRow>('SELECT * FROM meetings'),
-  ]);
-  return assembleCourses(courseRows.rows, sectionRows.rows, meetingRows.rows);
+export interface CourseFilters {
+  termId?: string;
+  subject?: string;
+  courseNumber?: string;
+  title?: string;
+  instructor?: string;
+  ge?: string;
+}
+
+export async function getCourses(filters: CourseFilters = {}): Promise<Course[]> {
+  const courseConditions: string[] = [];
+  const courseParams: unknown[] = [];
+
+  if (filters.termId) {
+    courseParams.push(filters.termId);
+    courseConditions.push(`term_id = $${courseParams.length}`);
+  }
+  if (filters.subject) {
+    courseParams.push(filters.subject);
+    courseConditions.push(`subject = $${courseParams.length}`);
+  }
+  if (filters.courseNumber) {
+    courseParams.push(`%${filters.courseNumber}%`);
+    courseConditions.push(`course_number ILIKE $${courseParams.length}`);
+  }
+  if (filters.title) {
+    courseParams.push(`%${filters.title}%`);
+    courseConditions.push(`title ILIKE $${courseParams.length}`);
+  }
+  if (filters.ge) {
+    courseParams.push(filters.ge);
+    courseConditions.push(`$${courseParams.length} = ANY(ge_categories)`);
+  }
+
+  const courseWhere = courseConditions.length ? `WHERE ${courseConditions.join(' AND ')}` : '';
+  const courseRows = (
+    await pool.query<CourseRow>(
+      `SELECT * FROM courses ${courseWhere} ORDER BY subject, course_number`,
+      courseParams,
+    )
+  ).rows;
+  if (courseRows.length === 0) return [];
+
+  const courseIds = courseRows.map((c) => c.id);
+  const sectionParams: unknown[] = [courseIds];
+  let sectionWhere = 'course_id = ANY($1)';
+  if (filters.instructor) {
+    sectionParams.push(`%${filters.instructor}%`);
+    sectionWhere += ` AND instructor ILIKE $${sectionParams.length}`;
+  }
+  const sectionRows = (
+    await pool.query<SectionRow>(
+      `SELECT * FROM sections WHERE ${sectionWhere} ORDER BY section_number`,
+      sectionParams,
+    )
+  ).rows;
+
+  const sectionIds = sectionRows.map((s) => s.id);
+  const meetingRows = sectionIds.length
+    ? (
+        await pool.query<MeetingRow>('SELECT * FROM meetings WHERE section_id = ANY($1)', [
+          sectionIds,
+        ])
+      ).rows
+    : [];
+
+  const courses = assembleCourses(courseRows, sectionRows, meetingRows);
+  // An instructor filter narrows sections, not courses — drop courses left with none matching.
+  return filters.instructor ? courses.filter((c) => c.sections.length > 0) : courses;
 }
 
 export async function getCourseById(id: string): Promise<Course | undefined> {
@@ -95,7 +165,9 @@ export async function getCourseById(id: string): Promise<Course | undefined> {
   );
   const sectionIds = sectionRows.rows.map((s) => s.id);
   const meetingRows = sectionIds.length
-    ? await pool.query<MeetingRow>('SELECT * FROM meetings WHERE section_id = ANY($1)', [sectionIds])
+    ? await pool.query<MeetingRow>('SELECT * FROM meetings WHERE section_id = ANY($1)', [
+        sectionIds,
+      ])
     : { rows: [] as MeetingRow[] };
 
   return assembleCourses(courseRows.rows, sectionRows.rows, meetingRows.rows)[0];

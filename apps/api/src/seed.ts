@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Course, Term } from '@titantrack/scraper/schema';
@@ -6,17 +6,24 @@ import { pool } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Mock data lives in packages/scraper until the real scraper (README §1) exists.
-function loadMockData(): { terms: Term[]; courses: Course[] } {
-  const mockDataPath = path.resolve(__dirname, '../../../packages/scraper/src/mock-data.json');
-  return JSON.parse(readFileSync(mockDataPath, 'utf-8'));
+// Prefers real scraped data (packages/scraper/src/scraped-data.json, produced by
+// `npm run scrape --workspace packages/scraper`) and falls back to the hand-written
+// mock-data.json when no scrape has been run yet.
+function loadSeedData(): { terms: Term[]; courses: Course[] } {
+  const scraperSrcDir = path.resolve(__dirname, '../../../packages/scraper/src');
+  const scrapedDataPath = path.join(scraperSrcDir, 'scraped-data.json');
+  const dataPath = existsSync(scrapedDataPath)
+    ? scrapedDataPath
+    : path.join(scraperSrcDir, 'mock-data.json');
+  console.log(`Seeding from ${path.basename(dataPath)}`);
+  return JSON.parse(readFileSync(dataPath, 'utf-8'));
 }
 
 export async function seedIfEmpty(): Promise<void> {
   const { rows } = await pool.query('SELECT 1 FROM terms LIMIT 1');
   if (rows.length > 0) return;
 
-  const { terms, courses } = loadMockData();
+  const { terms, courses } = loadSeedData();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -43,8 +50,9 @@ export async function seedIfEmpty(): Promise<void> {
 
       for (const section of course.sections) {
         await client.query(
-          `INSERT INTO sections (id, course_id, section_number, instructor, seats_total, seats_taken, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          `INSERT INTO sections
+             (id, course_id, section_number, instructor, seats_total, seats_taken, waitlist_total, waitlist_taken, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             section.id,
             course.id,
@@ -52,6 +60,8 @@ export async function seedIfEmpty(): Promise<void> {
             section.instructor,
             section.seatsTotal,
             section.seatsTaken,
+            section.waitlistTotal ?? 0,
+            section.waitlistTaken ?? 0,
             section.status,
           ],
         );

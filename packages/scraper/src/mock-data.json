@@ -1,6 +1,9 @@
 {
   "terms": [
-    { "id": "2261", "name": "Fall 2026" }
+    {
+      "id": "2261",
+      "name": "Fall 2026"
+    }
   ],
   "courses": [
     {
@@ -18,10 +21,17 @@
           "sectionNumber": "01",
           "instructor": "Kanev, K.",
           "meetings": [
-            { "days": ["Mon", "Wed"], "startTime": "09:00", "endTime": "10:15", "location": "CS-121" }
+            {
+              "days": ["Mon", "Wed"],
+              "startTime": "09:00",
+              "endTime": "10:15",
+              "location": "CS-121"
+            }
           ],
           "seatsTotal": 45,
           "seatsTaken": 45,
+          "waitlistTotal": 10,
+          "waitlistTaken": 3,
           "status": "closed"
         },
         {
@@ -29,10 +39,17 @@
           "sectionNumber": "02",
           "instructor": "Rojas, M.",
           "meetings": [
-            { "days": ["Tue", "Thu"], "startTime": "13:00", "endTime": "14:15", "location": "CS-121" }
+            {
+              "days": ["Tue", "Thu"],
+              "startTime": "13:00",
+              "endTime": "14:15",
+              "location": "CS-121"
+            }
           ],
           "seatsTotal": 45,
           "seatsTaken": 30,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
           "status": "open"
         }
       ]
@@ -52,10 +69,17 @@
           "sectionNumber": "01",
           "instructor": "Nguyen, T.",
           "meetings": [
-            { "days": ["Mon", "Wed", "Fri"], "startTime": "11:00", "endTime": "11:50", "location": "CS-205" }
+            {
+              "days": ["Mon", "Wed", "Fri"],
+              "startTime": "11:00",
+              "endTime": "11:50",
+              "location": "CS-205"
+            }
           ],
           "seatsTotal": 40,
           "seatsTaken": 12,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
           "status": "open"
         }
       ]
@@ -75,10 +99,17 @@
           "sectionNumber": "01",
           "instructor": "Osei, D.",
           "meetings": [
-            { "days": ["Mon", "Wed"], "startTime": "09:30", "endTime": "10:45", "location": "UH-205" }
+            {
+              "days": ["Mon", "Wed"],
+              "startTime": "09:30",
+              "endTime": "10:45",
+              "location": "UH-205"
+            }
           ],
           "seatsTotal": 40,
           "seatsTaken": 22,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
           "status": "open"
         }
       ]
@@ -98,10 +129,17 @@
           "sectionNumber": "01",
           "instructor": "Alvarado, P.",
           "meetings": [
-            { "days": ["Tue", "Thu"], "startTime": "09:30", "endTime": "10:45", "location": "MH-101" }
+            {
+              "days": ["Tue", "Thu"],
+              "startTime": "09:30",
+              "endTime": "10:45",
+              "location": "MH-101"
+            }
           ],
           "seatsTotal": 35,
           "seatsTaken": 20,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
           "status": "open"
         }
       ]
@@ -121,10 +159,17 @@
           "sectionNumber": "01",
           "instructor": "Whitfield, S.",
           "meetings": [
-            { "days": ["Mon", "Wed"], "startTime": "10:30", "endTime": "11:45", "location": "UH-225" }
+            {
+              "days": ["Mon", "Wed"],
+              "startTime": "10:30",
+              "endTime": "11:45",
+              "location": "UH-225"
+            }
           ],
           "seatsTotal": 25,
           "seatsTaken": 25,
+          "waitlistTotal": 10,
+          "waitlistTaken": 6,
           "status": "waitlist"
         },
         {
@@ -132,10 +177,17 @@
           "sectionNumber": "02",
           "instructor": "Park, J.",
           "meetings": [
-            { "days": ["Fri"], "startTime": "09:00", "endTime": "11:45", "location": "UH-225" }
+            {
+              "days": ["Fri"],
+              "startTime": "09:00",
+              "endTime": "11:45",
+              "location": "UH-225"
+            }
           ],
           "seatsTotal": 25,
           "seatsTaken": 18,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
           "status": "open"
         }
       ]
@@ -155,10 +207,17 @@
           "sectionNumber": "01",
           "instructor": "Diaz, R.",
           "meetings": [
-            { "days": ["Mon", "Wed"], "startTime": "13:00", "endTime": "13:50", "location": "KHS-102" }
+            {
+              "days": ["Mon", "Wed"],
+              "startTime": "13:00",
+              "endTime": "13:50",
+              "location": "KHS-102"
+            }
           ],
           "seatsTotal": 60,
           "seatsTaken": 40,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
           "status": "open"
         }
       ]
@@ -178,10 +237,17 @@
           "sectionNumber": "01",
           "instructor": "Bennett, L.",
           "meetings": [
-            { "days": ["Tue", "Thu"], "startTime": "11:00", "endTime": "12:15", "location": "UH-311" }
+            {
+              "days": ["Tue", "Thu"],
+              "startTime": "11:00",
+              "endTime": "12:15",
+              "location": "UH-311"
+            }
           ],
           "seatsTotal": 50,
           "seatsTaken": 47,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
           "status": "open"
         }
       ]

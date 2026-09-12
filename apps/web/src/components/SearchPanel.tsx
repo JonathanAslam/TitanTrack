@@ -112,7 +112,10 @@ export function SearchPanel({ courses, addedSectionIds, onAdd }: SearchPanelProp
         </label>
         <label>
           GE Category
-          <select value={filters.ge} onChange={(e) => setFilters((f) => ({ ...f, ge: e.target.value }))}>
+          <select
+            value={filters.ge}
+            onChange={(e) => setFilters((f) => ({ ...f, ge: e.target.value }))}
+          >
             <option value="">All</option>
             {geCategories.map((g) => (
               <option key={g} value={g}>

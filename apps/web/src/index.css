@@ -10,7 +10,12 @@
   --danger-bg: #fdeceb;
 
   color-scheme: light dark;
-  font: 15px/1.4 'Valley Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+  font:
+    15px/1.4 'Valley Sans',
+    system-ui,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;

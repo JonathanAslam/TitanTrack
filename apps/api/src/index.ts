@@ -1,7 +1,13 @@
 import cors from 'cors';
 import express from 'express';
 import { initSchema } from './db.js';
-import { getCourseById, getCourses, getTerms, sectionExists } from './repository.js';
+import {
+  getCourseById,
+  getCourses,
+  getTerms,
+  sectionExists,
+  type CourseFilters,
+} from './repository.js';
 import { seedIfEmpty } from './seed.js';
 
 const app = express();
@@ -17,8 +23,20 @@ app.get('/api/terms', async (_req, res) => {
   res.json(await getTerms());
 });
 
-app.get('/api/courses', async (_req, res) => {
-  res.json(await getCourses());
+function queryString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+app.get('/api/courses', async (req, res) => {
+  const filters: CourseFilters = {
+    termId: queryString(req.query.term),
+    subject: queryString(req.query.subject),
+    courseNumber: queryString(req.query.courseNumber),
+    title: queryString(req.query.title),
+    instructor: queryString(req.query.instructor),
+    ge: queryString(req.query.ge),
+  };
+  res.json(await getCourses(filters));
 });
 
 app.get('/api/courses/:id', async (req, res) => {

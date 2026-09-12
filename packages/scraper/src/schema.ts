@@ -30,6 +30,8 @@ export interface Section {
   meetings: Meeting[];
   seatsTotal: number;
   seatsTaken: number;
+  waitlistTotal: number;
+  waitlistTaken: number;
   status: SeatStatus;
 }
 

@@ -83,7 +83,9 @@ export function useSchedules() {
   function removeSchedule(id: string) {
     setState((prev) => {
       const remaining = prev.schedules.filter((s) => s.id !== id);
-      const schedules = remaining.length ? remaining : [{ id: makeId(), name: 'Schedule 1', selections: [] }];
+      const schedules = remaining.length
+        ? remaining
+        : [{ id: makeId(), name: 'Schedule 1', selections: [] }];
       const activeId = prev.activeId === id ? schedules[0].id : prev.activeId;
       return { schedules, activeId };
     });
