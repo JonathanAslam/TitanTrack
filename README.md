@@ -74,10 +74,28 @@ public Class Search (PeopleSoft/Campus Solutions, accessed via MyView / Titan On
 
 ## 8. Deployment
 
-- [ ] Frontend: Vercel/Netlify
-- [ ] Backend + DB: Railway/Render/Fly.io
+- [x] Frontend: Vercel
+- [x] Backend: Render
+- [x] DB (+ future auth): Supabase
 - [ ] Scraper: scheduled job (GitHub Actions cron or same host)
 - [ ] Domain + basic SEO (title/meta)
+
+## 9. Deployment architecture
+
+Current stack (v0, chosen to get something live cheaply while staying easy to scale later):
+
+| Piece | Deployed to | Notes |
+| --- | --- | --- |
+| `apps/web` | **Vercel** | Static Vite build. Free tier, global CDN. Build-time env var `VITE_API_BASE_URL` must point at the Render API's public URL. |
+| `apps/api` | **Render** (Web Service, Docker) | Built from `apps/api/Dockerfile`'s `prod` stage via the root `render.yaml` blueprint. Stateful long-running Express process (in-memory course cache, periodic data-sync interval) — this is why it's on Render and not a serverless platform like Vercel functions. |
+| Postgres | **Supabase** | Free tier doesn't expire like Render's; also brings Google-sign-in-capable Auth + RLS for whenever accounts/saved schedules (README §7) get built. Connected via `DATABASE_URL` set manually as a Render env var (its connection-pooling string, not the direct one — see step-by-step below). |
+| `packages/scraper` | *not yet deployed* | Currently run manually/locally (`npm run scrape --workspace packages/scraper`). Its output (`scraped-data.json`) is gitignored, so until it's automated, real data gets into Supabase by running the API's sync locally against Supabase's `DATABASE_URL`. See §1/§8 todo above for automating this as a scheduled job. |
+
+**Why this split:** `apps/api` keeps state in process (an in-memory TTL cache, a `setInterval` poll loop), so it needs a long-running server rather than a serverless function — that's Render. `apps/web` is a static build with no server-side state, so it belongs on a CDN-first host — that's Vercel, and it's effectively free at this scale. Postgres lives on Supabase rather than Render so the free-tier DB doesn't expire, and to get Auth/RLS for free when accounts are built.
+
+**Scaling later, cheaply:** Render's autoscaling/load-balancing (paid plans) works without any code changes — the API already reads `PORT`/`DATABASE_URL` from env and is stateless per request, so adding instances behind Render's load balancer is a plan upgrade, not a rewrite. The one caveat is the in-memory courses cache: each instance caches independently, so at higher scale that's the first thing to move to a shared cache (e.g. Redis) rather than in-process memory.
+
+**One-click redeploy:** the root `render.yaml` is a Render Blueprint for the API service — importing this repo into Render provisions it with the right env vars pre-filled, prompting only for `DATABASE_URL` (since the DB itself lives on Supabase, outside Render).
 
 ## Suggested build order
 

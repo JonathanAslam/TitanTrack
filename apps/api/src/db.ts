@@ -2,8 +2,26 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
+const connectionString = process.env.DATABASE_URL;
+
+// Managed Postgres (Supabase, Render, etc.) requires SSL over its connection string.
+// Local/docker-compose Postgres has no SSL cert configured, so only opt in for non-local hosts
+// rather than naming a specific provider — this keeps working across whichever host DATABASE_URL
+// points at.
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', 'db']);
+
+function isLocalDatabase(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    return LOCAL_HOSTS.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
+  ssl: isLocalDatabase(connectionString) ? undefined : { rejectUnauthorized: false },
 });
 
 const SCHEMA_SQL = `

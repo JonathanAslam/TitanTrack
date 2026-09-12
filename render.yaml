@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: titantrack-api
+    env: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # set manually to your Supabase connection-pooling string
+      - key: COURSE_DATA_SYNC_INTERVAL_MS
+        value: 900000
+      - key: COURSES_CACHE_TTL_MS
+        value: 60000
