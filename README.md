@@ -92,3 +92,16 @@ packages/
 npm install
 npm run dev --workspace apps/web   # frontend dev server (mock data)
 ```
+
+### Running with Docker
+
+Spins up the web frontend and API together, with source mounted for hot reload:
+
+```bash
+docker compose up
+```
+
+- Web: http://localhost:5173
+- API: http://localhost:3001/api/health
+
+`docker compose down` stops it. Rebuild after dependency changes with `docker compose build`.
