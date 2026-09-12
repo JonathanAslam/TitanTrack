@@ -1,13 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useCourseData } from './hooks/useCourseData';
 import { useSchedules } from './hooks/useSchedules';
 import { findConflicts, totalUnits, type ScheduledSection } from './lib/schedule';
 import { SearchPanel } from './components/SearchPanel';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { ScheduleTabs } from './components/ScheduleTabs';
+import { PlannerView } from './components/PlannerView';
 import './App.css';
 
+type View = 'schedule' | 'planner';
+
 function App() {
+  const [view, setView] = useState<View>('schedule');
   const { terms, courses, loading, error } = useCourseData();
   const {
     schedules,
@@ -49,12 +53,30 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>TitanTrack</h1>
+        <nav className="view-tabs">
+          <button
+            type="button"
+            className={`view-tab${view === 'schedule' ? ' view-tab-active' : ''}`}
+            onClick={() => setView('schedule')}
+          >
+            Schedule Builder
+          </button>
+          <button
+            type="button"
+            className={`view-tab${view === 'planner' ? ' view-tab-active' : ''}`}
+            onClick={() => setView('planner')}
+          >
+            Degree Planner
+          </button>
+        </nav>
         <span className="term-label">{terms[0]?.name ?? 'No term selected'}</span>
       </header>
       {loading ? (
         <div className="app-status">Loading courses…</div>
       ) : error ? (
         <div className="app-status app-status-error">Couldn't load course data: {error}</div>
+      ) : view === 'planner' ? (
+        <PlannerView courses={courses} />
       ) : (
         <div className="app-layout">
           <SearchPanel courses={courses} addedSectionIds={addedSectionIds} onAdd={addSection} />
