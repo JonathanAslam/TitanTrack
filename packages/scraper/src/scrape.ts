@@ -48,6 +48,16 @@ export interface ScrapeOptions {
   delayMs?: number;
   /** Run the browser headed (for debugging). Default false. */
   headed?: boolean;
+  /** Subject codes to skip entirely, e.g. ones already completed by a prior run being resumed. */
+  skipSubjects?: string[];
+  /** Called once the term dropdown match is resolved, before any subject is scraped. */
+  onTermResolved?: (term: Term) => void;
+  /** Called after each subject finishes (successfully or not) — use this for incremental/checkpointed writes. */
+  onSubjectComplete?: (result: {
+    subject: SubjectOption;
+    courses: Course[];
+    error?: Error;
+  }) => void | Promise<void>;
   onProgress?: (message: string) => void;
 }
 
@@ -91,6 +101,38 @@ function slugify(value: string): string {
 
 async function gotoSearchPage(page: Page): Promise<void> {
   await page.goto(CLASS_SEARCH_URL, { waitUntil: 'networkidle' });
+}
+
+/**
+ * Retries a flaky async step (page navigation/selectors against a live, occasionally-slow
+ * PeopleSoft server) a fixed number of times with linear backoff. Rethrows the last error once
+ * retries are exhausted so callers can decide how to handle a step that never recovers.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  opts: {
+    retries?: number;
+    delayMs?: number;
+    label: string;
+    onProgress?: (message: string) => void;
+  },
+): Promise<T> {
+  const { retries = 2, delayMs = 1500, label, onProgress } = opts;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= retries + 1; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt <= retries) {
+        onProgress?.(
+          `  ${label} failed (attempt ${attempt}/${retries + 1}): ${(err as Error).message} — retrying...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+      }
+    }
+  }
+  throw lastErr;
 }
 
 export async function listTerms(page: Page): Promise<TermOption[]> {
@@ -180,34 +222,55 @@ interface ClassDetail {
   waitlistTaken: number;
 }
 
-async function fetchClassDetail(page: Page, rowIndex: number): Promise<ClassDetail | null> {
+async function fetchClassDetail(
+  page: Page,
+  rowIndex: number,
+  opts: { onProgress?: (message: string) => void; recoverResultsPage: () => Promise<boolean> },
+): Promise<ClassDetail | null> {
   const link = page.locator(`#MTG_CLASS_NBR\\$${rowIndex}`);
   if ((await link.count()) === 0) return null;
-  await link.click();
-  await page.waitForFunction(() => document.body.innerText.includes('Class Detail'), {
-    timeout: 20000,
-  });
 
-  const detail = await page.evaluate(() => {
-    const text = (id: string) => document.getElementById(id)?.textContent?.trim() ?? '';
-    const unitsRaw = text('SSR_CLS_DTL_WRK_UNITS_RANGE');
-    const geText = text('SSR_CLS_DTL_WRK_SSR_CRSE_ATTR_LONG');
-    return {
-      units: Number(/[\d.]+/.exec(unitsRaw)?.[0] ?? 0),
-      geCategories: geText ? [geText.replace(/^Meets GE:\s*/i, '').trim()] : [],
-      description: text('DERIVED_CLSRCH_DESCRLONG') || undefined,
-      seatsTotal: Number(text('SSR_CLS_DTL_WRK_ENRL_CAP') || 0),
-      seatsTaken: Number(text('SSR_CLS_DTL_WRK_ENRL_TOT') || 0),
-      waitlistTotal: Number(text('SSR_CLS_DTL_WRK_WAIT_CAP') || 0),
-      waitlistTaken: Number(text('SSR_CLS_DTL_WRK_WAIT_TOT') || 0),
-    };
-  });
+  try {
+    return await withRetry(
+      async () => {
+        await link.click();
+        await page.waitForFunction(() => document.body.innerText.includes('Class Detail'), {
+          timeout: 20000,
+        });
 
-  await page.click('#CLASS_SRCH_WRK2_SSR_PB_BACK');
-  await page.waitForFunction(() => /class section\(s\) found/.test(document.body.innerText), {
-    timeout: 20000,
-  });
-  return detail;
+        const detail = await page.evaluate(() => {
+          const text = (id: string) => document.getElementById(id)?.textContent?.trim() ?? '';
+          const unitsRaw = text('SSR_CLS_DTL_WRK_UNITS_RANGE');
+          const geText = text('SSR_CLS_DTL_WRK_SSR_CRSE_ATTR_LONG');
+          return {
+            units: Number(/[\d.]+/.exec(unitsRaw)?.[0] ?? 0),
+            geCategories: geText ? [geText.replace(/^Meets GE:\s*/i, '').trim()] : [],
+            description: text('DERIVED_CLSRCH_DESCRLONG') || undefined,
+            seatsTotal: Number(text('SSR_CLS_DTL_WRK_ENRL_CAP') || 0),
+            seatsTaken: Number(text('SSR_CLS_DTL_WRK_ENRL_TOT') || 0),
+            waitlistTotal: Number(text('SSR_CLS_DTL_WRK_WAIT_CAP') || 0),
+            waitlistTaken: Number(text('SSR_CLS_DTL_WRK_WAIT_TOT') || 0),
+          };
+        });
+
+        await page.click('#CLASS_SRCH_WRK2_SSR_PB_BACK');
+        await page.waitForFunction(() => /class section\(s\) found/.test(document.body.innerText), {
+          timeout: 20000,
+        });
+        return detail;
+      },
+      { retries: 1, label: `class detail for row ${rowIndex}`, onProgress: opts.onProgress },
+    );
+  } catch (err) {
+    opts.onProgress?.(
+      `  warning: giving up on class detail for row ${rowIndex} (seat/GE/units data will be missing): ${(err as Error).message}`,
+    );
+    // The click may have left the page stuck mid-drill-down; re-run the subject search so the
+    // remaining rows in this subject can still be processed instead of aborting the whole subject.
+    const recovered = await opts.recoverResultsPage();
+    if (!recovered) throw err;
+    return null;
+  }
 }
 
 /** Searches one subject within the given term and returns its courses (with sections/meetings). */
@@ -219,37 +282,64 @@ export async function scrapeSubject(
 ): Promise<Course[]> {
   const { limitPerSubject, fetchDetails = true, delayMs = 400, onProgress } = opts;
 
-  await gotoSearchPage(page);
-  await page.selectOption('[id^="CLASS_SRCH_WRK2_STRM"]', termId);
-  await page.selectOption('[id^="SSR_CLSRCH_WRK_SUBJECT_SRCH"]', subjectCode);
-  await page.click('[id^="CLASS_SRCH_WRK2_SSR_PB_CLASS_SRCH"]');
-  await page.waitForTimeout(1200);
+  /** Drives the search form fresh and waits for results (or "no classes found"). Retried as a unit
+   *  since any step here can hang on a slow/flaky PeopleSoft response. */
+  const runSearch = () =>
+    withRetry(
+      async () => {
+        await gotoSearchPage(page);
+        await page.selectOption('[id^="CLASS_SRCH_WRK2_STRM"]', termId);
+        await page.selectOption('[id^="SSR_CLSRCH_WRK_SUBJECT_SRCH"]', subjectCode);
+        // Deliberately not unchecking "Show Open Classes Only" here — see todo.md's Data
+        // pipeline notes: interacting with that checkbox (or even just adding a settle-wait
+        // between form steps) reliably desyncs this stateful form and the search silently
+        // returns to a blank form instead of results. Fixing that needs to reverse-engineer
+        // PeopleSoft's postback timing, which is out of scope for now.
+        await page.click('[id^="CLASS_SRCH_WRK2_SSR_PB_CLASS_SRCH"]');
+        await page.waitForTimeout(1200);
 
-  // "Your search will return over N classes" confirmation — only appears for large result sets.
-  try {
-    await page.waitForSelector('input[value="OK"]', { timeout: 3000 });
-    await page.click('input[value="OK"]');
-  } catch {
-    // no confirmation dialog — small result set
-  }
+        // "Your search will return over N classes" confirmation — only appears for large result sets.
+        try {
+          await page.waitForSelector('input[value="OK"]', { timeout: 3000 });
+          await page.click('input[value="OK"]');
+        } catch {
+          // no confirmation dialog — small result set
+        }
 
-  const found = await Promise.race([
-    page
-      .waitForFunction(() => /class section\(s\) found/.test(document.body.innerText), {
-        timeout: 20000,
-      })
-      .then(() => true),
-    page
-      .waitForFunction(() => /no classes found/i.test(document.body.innerText), { timeout: 20000 })
-      .then(() => false),
-  ]).catch(() => false);
+        return Promise.race([
+          page
+            .waitForFunction(() => /class section\(s\) found/.test(document.body.innerText), {
+              timeout: 20000,
+            })
+            .then(() => true),
+          page
+            .waitForFunction(() => /no classes found/i.test(document.body.innerText), {
+              timeout: 20000,
+            })
+            .then(() => false),
+        ]);
+      },
+      { retries: 2, label: `search for subject ${subjectCode}`, onProgress },
+    );
 
+  const found = await runSearch();
   if (!found) return [];
 
   let rows = await parseResultsRows(page);
   if (limitPerSubject) rows = rows.slice(0, limitPerSubject);
 
   const coursesByKey = new Map<string, Course>();
+
+  /** Recovery for a wedged detail drill-in: re-run the (deterministic) subject search so row
+   *  indices line up again and remaining rows can still be processed. */
+  const recoverResultsPage = async (): Promise<boolean> => {
+    try {
+      onProgress?.(`  recovering results page for ${subjectCode} after a stuck class detail...`);
+      return await runSearch();
+    } catch {
+      return false;
+    }
+  };
 
   for (const row of rows) {
     const headingMatch = /^(\S+)\s+(\S+)\s*-\s*(.+)$/.exec(row.courseHeading);
@@ -261,7 +351,7 @@ export async function scrapeSubject(
     let detail: ClassDetail | null = null;
     if (fetchDetails) {
       onProgress?.(`  ${subject} ${courseNumber} #${row.classNbr} (${row.sectionNumber})`);
-      detail = await fetchClassDetail(page, row.rowIndex);
+      detail = await fetchClassDetail(page, row.rowIndex, { onProgress, recoverResultsPage });
       await page.waitForTimeout(delayMs);
     }
 
@@ -310,8 +400,16 @@ export async function scrapeSubject(
 
 export async function scrapeCatalog(
   options: ScrapeOptions,
-): Promise<{ terms: Term[]; courses: Course[] }> {
-  const { term, subjects, allSubjects, onProgress } = options;
+): Promise<{ terms: Term[]; courses: Course[]; failedSubjects: string[] }> {
+  const {
+    term,
+    subjects,
+    allSubjects,
+    skipSubjects,
+    onProgress,
+    onSubjectComplete,
+    onTermResolved,
+  } = options;
   if (!subjects?.length && !allSubjects) {
     throw new Error(
       'scrapeCatalog requires `subjects` (a list of subject codes) or `allSubjects: true`.',
@@ -331,30 +429,62 @@ export async function scrapeCatalog(
       throw new Error(
         `Term "${term}" not found. Available: ${termOptions.map((t) => t.label).join(', ')}`,
       );
+    onTermResolved?.({ id: termOption.id, name: termOption.label });
 
     const subjectOptions = await listSubjects(page);
-    const targetSubjects = allSubjects
-      ? subjectOptions
-      : subjectOptions.filter((s) => subjects!.some((code) => code.toUpperCase() === s.code));
+    const skip = new Set((skipSubjects ?? []).map((c) => c.toUpperCase()));
+    const targetSubjects = (
+      allSubjects
+        ? subjectOptions
+        : subjectOptions.filter((s) => subjects!.some((code) => code.toUpperCase() === s.code))
+    ).filter((s) => !skip.has(s.code.toUpperCase()));
 
     onProgress?.(
-      `Term: ${termOption.label} (${termOption.id}); subjects: ${targetSubjects.length}`,
+      `Term: ${termOption.label} (${termOption.id}); subjects: ${targetSubjects.length}` +
+        (skip.size ? ` (${skip.size} skipped as already done)` : ''),
     );
 
     const allCourses: Course[] = [];
+    const failedSubjects: string[] = [];
     for (const subject of targetSubjects) {
       onProgress?.(`Scraping ${subject.code} — ${subject.label}...`);
-      const courses = await scrapeSubject(page, termOption.id, subject.code, {
-        limitPerSubject: options.limitPerSubject,
-        fetchDetails: options.fetchDetails,
-        delayMs: options.delayMs,
-        onProgress,
-      });
-      allCourses.push(...courses);
+      try {
+        // Retry the whole subject once more at this level in case scrapeSubject's own internal
+        // retries were exhausted by one bad patch (e.g. a slow window in the server); an error
+        // here is isolated to this subject so the rest of the catalog run keeps going.
+        const courses = await withRetry(
+          () =>
+            scrapeSubject(page, termOption.id, subject.code, {
+              limitPerSubject: options.limitPerSubject,
+              fetchDetails: options.fetchDetails,
+              delayMs: options.delayMs,
+              onProgress,
+            }),
+          { retries: 1, label: `subject ${subject.code}`, onProgress },
+        );
+        allCourses.push(...courses);
+        await onSubjectComplete?.({ subject, courses });
+      } catch (err) {
+        onProgress?.(
+          `  giving up on subject ${subject.code} after retries, skipping it: ${(err as Error).message}`,
+        );
+        failedSubjects.push(subject.code);
+        await onSubjectComplete?.({ subject, courses: [], error: err as Error });
+      }
       await page.waitForTimeout(options.delayMs ?? 400);
     }
 
-    return { terms: [{ id: termOption.id, name: termOption.label }], courses: allCourses };
+    if (failedSubjects.length) {
+      onProgress?.(
+        `Done with failures — subjects that could not be scraped: ${failedSubjects.join(', ')}`,
+      );
+    }
+
+    return {
+      terms: [{ id: termOption.id, name: termOption.label }],
+      courses: allCourses,
+      failedSubjects,
+    };
   } finally {
     await browser.close();
   }

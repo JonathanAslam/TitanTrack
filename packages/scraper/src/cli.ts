@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scrapeCatalog } from './scrape.js';
+import type { Course, Term } from './schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,13 +25,38 @@ function parseArgs(argv: string[]) {
   return { args, flags };
 }
 
+interface OutputFile {
+  terms: Term[];
+  courses: Course[];
+  meta: {
+    term: string | undefined;
+    completedSubjects: string[];
+    failedSubjects: string[];
+    updatedAt: string;
+    complete: boolean;
+  };
+}
+
+function loadCheckpoint(outPath: string, term: string | undefined): OutputFile | null {
+  if (!existsSync(outPath)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(outPath, 'utf-8')) as Partial<OutputFile>;
+    if (!parsed.meta || parsed.meta.term !== term || parsed.meta.complete) return null;
+    return parsed as OutputFile;
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   const { args, flags } = parseArgs(process.argv.slice(2));
 
   if (!args.subjects && !flags.has('all-subjects')) {
     console.error(
-      'Usage: npm run scrape --workspace packages/scraper -- --subjects CPSC,PHIL [--term "Fall 2026"] [--limit-per-subject 5] [--no-detail] [--out path.json]\n' +
-        'Or pass --all-subjects to scrape every subject (slow, ~90 subjects — be polite about when you run this).',
+      'Usage: npm run scrape --workspace packages/scraper -- --subjects CPSC,PHIL [--term "Fall 2026"]\n' +
+        '  [--limit-per-subject 5] [--no-detail] [--delay-ms N] [--out path.json] [--resume]\n' +
+        'Or pass --all-subjects to scrape every subject (slow, ~90 subjects — be polite about when you run this).\n' +
+        "  --resume  continue an interrupted run from --out's checkpoint, skipping completed subjects",
     );
     process.exit(1);
   }
@@ -38,6 +64,33 @@ async function main() {
   const outPath = args.out
     ? path.resolve(process.cwd(), args.out)
     : path.resolve(__dirname, 'scraped-data.json');
+
+  const checkpoint = flags.has('resume') ? loadCheckpoint(outPath, args.term) : null;
+  if (checkpoint) {
+    console.log(
+      `Resuming from checkpoint: ${checkpoint.meta.completedSubjects.length} subject(s) already done, ` +
+        `${checkpoint.courses.length} course(s) so far.`,
+    );
+  }
+
+  const courses: Course[] = checkpoint ? [...checkpoint.courses] : [];
+  const completedSubjects: string[] = checkpoint ? [...checkpoint.meta.completedSubjects] : [];
+  let terms: Term[] = checkpoint?.terms ?? [];
+
+  const writeCheckpoint = (complete: boolean, failedSubjects: string[]) => {
+    const output: OutputFile = {
+      terms,
+      courses,
+      meta: {
+        term: args.term,
+        completedSubjects,
+        failedSubjects,
+        updatedAt: new Date().toISOString(),
+        complete,
+      },
+    };
+    writeFileSync(outPath, JSON.stringify(output, null, 2));
+  };
 
   const result = await scrapeCatalog({
     term: args.term,
@@ -47,13 +100,34 @@ async function main() {
     fetchDetails: !flags.has('no-detail'),
     delayMs: args['delay-ms'] ? Number(args['delay-ms']) : undefined,
     headed: flags.has('headed'),
+    skipSubjects: completedSubjects,
     onProgress: (msg) => console.log(msg),
+    onTermResolved: (resolvedTerm) => {
+      terms = [resolvedTerm];
+    },
+    onSubjectComplete: ({ subject, courses: subjectCourses, error }) => {
+      if (!error) {
+        courses.push(...subjectCourses);
+        completedSubjects.push(subject.code);
+      }
+      // Flush after every subject so a crash mid-run loses at most one subject's work, not the
+      // whole run — see todo.md's "no checkpointing" note.
+      writeCheckpoint(false, []);
+    },
   });
 
-  writeFileSync(outPath, JSON.stringify(result, null, 2));
+  terms = result.terms;
+  writeCheckpoint(result.failedSubjects.length === 0, result.failedSubjects);
+
   console.log(
-    `\nWrote ${result.courses.length} course(s), ${result.courses.reduce((n, c) => n + c.sections.length, 0)} section(s) to ${outPath}`,
+    `\nWrote ${courses.length} course(s), ${courses.reduce((n, c) => n + c.sections.length, 0)} section(s) to ${outPath}`,
   );
+  if (result.failedSubjects.length) {
+    console.log(
+      `${result.failedSubjects.length} subject(s) failed and were skipped: ${result.failedSubjects.join(', ')}\n` +
+        `Re-run with the same --out and --resume to retry just those.`,
+    );
+  }
 }
 
 main().catch((err) => {

@@ -93,7 +93,40 @@ export interface CourseFilters {
   ge?: string;
 }
 
+// Course data only changes when the scraper's output is synced in (see seed.ts's
+// syncCourseData, called on an interval), not on every request — a short-lived in-memory cache
+// avoids re-running the courses/sections/meetings joins for identical queries in between syncs.
+// invalidateCoursesCache() is called right after a sync that actually changed data, so this TTL
+// is just a backstop against back-to-back identical requests, not the main freshness mechanism.
+const COURSES_CACHE_TTL_MS = Number(process.env.COURSES_CACHE_TTL_MS ?? 60_000);
+const coursesCache = new Map<string, { value: Course[]; expiresAt: number }>();
+
+function coursesCacheKey(filters: CourseFilters): string {
+  return JSON.stringify([
+    filters.termId,
+    filters.subject,
+    filters.courseNumber,
+    filters.title,
+    filters.instructor,
+    filters.ge,
+  ]);
+}
+
+export function invalidateCoursesCache(): void {
+  coursesCache.clear();
+}
+
 export async function getCourses(filters: CourseFilters = {}): Promise<Course[]> {
+  const cacheKey = coursesCacheKey(filters);
+  const cached = coursesCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const courses = await queryCourses(filters);
+  coursesCache.set(cacheKey, { value: courses, expiresAt: Date.now() + COURSES_CACHE_TTL_MS });
+  return courses;
+}
+
+async function queryCourses(filters: CourseFilters): Promise<Course[]> {
   const courseConditions: string[] = [];
   const courseParams: unknown[] = [];
 

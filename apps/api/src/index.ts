@@ -5,10 +5,23 @@ import {
   getCourseById,
   getCourses,
   getTerms,
+  invalidateCoursesCache,
   sectionExists,
   type CourseFilters,
 } from './repository.js';
-import { seedIfEmpty } from './seed.js';
+import { syncCourseData } from './seed.js';
+
+// How often to re-check the scraper's output file for new data (see seed.ts's syncCourseData).
+// The scraper is run manually/in chunks (todo.md), so this decouples "the file changed on disk"
+// from "the API needs restarting to notice" — it just polls on this cadence instead.
+const COURSE_DATA_SYNC_INTERVAL_MS = Number(
+  process.env.COURSE_DATA_SYNC_INTERVAL_MS ?? 15 * 60 * 1000,
+);
+
+async function syncAndInvalidateCache(): Promise<void> {
+  const { changed } = await syncCourseData();
+  if (changed) invalidateCoursesCache();
+}
 
 const app = express();
 const port = process.env.PORT ?? 3001;
@@ -60,7 +73,12 @@ app.get('/api/sections/:id/grades', async (req, res) => {
 
 async function start() {
   await initSchema();
-  await seedIfEmpty();
+  await syncAndInvalidateCache();
+
+  setInterval(() => {
+    syncAndInvalidateCache().catch((err) => console.error('Course data sync failed', err));
+  }, COURSE_DATA_SYNC_INTERVAL_MS);
+
   app.listen(port, () => {
     console.log(`TitanTrack API listening on http://localhost:${port}`);
   });
