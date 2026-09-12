@@ -1,0 +1,190 @@
+{
+  "terms": [
+    { "id": "2261", "name": "Fall 2026" }
+  ],
+  "courses": [
+    {
+      "id": "cpsc-131-2261",
+      "termId": "2261",
+      "subject": "CPSC",
+      "courseNumber": "131",
+      "title": "Data Structures",
+      "units": 3,
+      "geCategories": [],
+      "description": "Abstract data types, algorithm analysis, and data structures.",
+      "sections": [
+        {
+          "id": "cpsc-131-01",
+          "sectionNumber": "01",
+          "instructor": "Kanev, K.",
+          "meetings": [
+            { "days": ["Mon", "Wed"], "startTime": "09:00", "endTime": "10:15", "location": "CS-121" }
+          ],
+          "seatsTotal": 45,
+          "seatsTaken": 45,
+          "status": "closed"
+        },
+        {
+          "id": "cpsc-131-02",
+          "sectionNumber": "02",
+          "instructor": "Rojas, M.",
+          "meetings": [
+            { "days": ["Tue", "Thu"], "startTime": "13:00", "endTime": "14:15", "location": "CS-121" }
+          ],
+          "seatsTotal": 45,
+          "seatsTaken": 30,
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "cpsc-335-2261",
+      "termId": "2261",
+      "subject": "CPSC",
+      "courseNumber": "335",
+      "title": "Algorithm Engineering",
+      "units": 3,
+      "geCategories": [],
+      "description": "Design and analysis of algorithms.",
+      "sections": [
+        {
+          "id": "cpsc-335-01",
+          "sectionNumber": "01",
+          "instructor": "Nguyen, T.",
+          "meetings": [
+            { "days": ["Mon", "Wed", "Fri"], "startTime": "11:00", "endTime": "11:50", "location": "CS-205" }
+          ],
+          "seatsTotal": 40,
+          "seatsTaken": 12,
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "phil-100-2261",
+      "termId": "2261",
+      "subject": "PHIL",
+      "courseNumber": "100",
+      "title": "Introduction to Philosophy",
+      "units": 3,
+      "geCategories": ["GE C3"],
+      "description": "Central problems and methods of philosophy.",
+      "sections": [
+        {
+          "id": "phil-100-01",
+          "sectionNumber": "01",
+          "instructor": "Osei, D.",
+          "meetings": [
+            { "days": ["Mon", "Wed"], "startTime": "09:30", "endTime": "10:45", "location": "UH-205" }
+          ],
+          "seatsTotal": 40,
+          "seatsTaken": 22,
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "math-250b-2261",
+      "termId": "2261",
+      "subject": "MATH",
+      "courseNumber": "250B",
+      "title": "Multivariable Calculus",
+      "units": 3,
+      "geCategories": [],
+      "description": "Vector calculus, partial derivatives, multiple integrals.",
+      "sections": [
+        {
+          "id": "math-250b-01",
+          "sectionNumber": "01",
+          "instructor": "Alvarado, P.",
+          "meetings": [
+            { "days": ["Tue", "Thu"], "startTime": "09:30", "endTime": "10:45", "location": "MH-101" }
+          ],
+          "seatsTotal": 35,
+          "seatsTaken": 20,
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "engl-101-2261",
+      "termId": "2261",
+      "subject": "ENGL",
+      "courseNumber": "101",
+      "title": "Composition",
+      "units": 3,
+      "geCategories": ["GE A2"],
+      "description": "Introduction to college-level writing.",
+      "sections": [
+        {
+          "id": "engl-101-01",
+          "sectionNumber": "01",
+          "instructor": "Whitfield, S.",
+          "meetings": [
+            { "days": ["Mon", "Wed"], "startTime": "10:30", "endTime": "11:45", "location": "UH-225" }
+          ],
+          "seatsTotal": 25,
+          "seatsTaken": 25,
+          "status": "waitlist"
+        },
+        {
+          "id": "engl-101-02",
+          "sectionNumber": "02",
+          "instructor": "Park, J.",
+          "meetings": [
+            { "days": ["Fri"], "startTime": "09:00", "endTime": "11:45", "location": "UH-225" }
+          ],
+          "seatsTotal": 25,
+          "seatsTaken": 18,
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "kine-101-2261",
+      "termId": "2261",
+      "subject": "KINE",
+      "courseNumber": "101",
+      "title": "Introduction to Kinesiology",
+      "units": 2,
+      "geCategories": ["GE E"],
+      "description": "Survey of the field of kinesiology.",
+      "sections": [
+        {
+          "id": "kine-101-01",
+          "sectionNumber": "01",
+          "instructor": "Diaz, R.",
+          "meetings": [
+            { "days": ["Mon", "Wed"], "startTime": "13:00", "endTime": "13:50", "location": "KHS-102" }
+          ],
+          "seatsTotal": 60,
+          "seatsTaken": 40,
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "hist-110-2261",
+      "termId": "2261",
+      "subject": "HIST",
+      "courseNumber": "110",
+      "title": "World History to 1500",
+      "units": 3,
+      "geCategories": ["GE C2"],
+      "description": "Survey of world civilizations before 1500 CE.",
+      "sections": [
+        {
+          "id": "hist-110-01",
+          "sectionNumber": "01",
+          "instructor": "Bennett, L.",
+          "meetings": [
+            { "days": ["Tue", "Thu"], "startTime": "11:00", "endTime": "12:15", "location": "UH-311" }
+          ],
+          "seatsTotal": 50,
+          "seatsTaken": 47,
+          "status": "open"
+        }
+      ]
+    }
+  ]
+}
