@@ -461,35 +461,67 @@ button:disabled {
   transition: width 0.2s ease;
 }
 
-.add-term {
+.add-year {
+  white-space: nowrap;
+}
+
+.ge-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 14px 16px;
+}
+
+.ge-panel-header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: end;
+  justify-content: space-between;
+  align-items: baseline;
   gap: 12px;
 }
 
-.add-term label {
+.ge-panel-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.ge-panel-stats {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ge-category-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.ge-category-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ge-category-name {
+  flex: 0 0 auto;
+  font-weight: 600;
+  min-width: 48px;
+}
+
+.ge-category-row.satisfied .ge-category-name {
+  color: var(--accent);
+}
+
+.ge-category-courses {
   color: var(--text-muted);
 }
 
-.add-term input,
-.add-term select {
-  font: inherit;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-}
-
-.add-term-message {
-  margin: -10px 0 0;
-  color: var(--danger);
-  font-size: 13px;
+.ge-category-row.unsatisfied .ge-category-courses {
+  font-style: italic;
 }
 
 .year-group {
@@ -518,6 +550,44 @@ button:disabled {
   color: var(--text-muted);
   font-size: 12px;
   white-space: nowrap;
+}
+
+.year-remove {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0 4px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.year-remove:hover {
+  color: var(--danger);
+  border-color: transparent;
+}
+
+.term-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.term-toggle-chip {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.term-toggle-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
 }
 
 .term-row {

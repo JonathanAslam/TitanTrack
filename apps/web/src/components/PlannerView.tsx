@@ -1,13 +1,8 @@
-import { useMemo, useState } from 'react';
-import {
-  groupByAcademicYear,
-  SESSIONS,
-  termCredits,
-  usePlanner,
-  type Session,
-} from '../hooks/usePlanner';
+import { useMemo } from 'react';
+import { buildYearGroups, SESSIONS, termCredits, usePlanner } from '../hooks/usePlanner';
 import { dedupeCatalog } from '../lib/catalog';
 import type { Course } from '../types';
+import { GeRequirementsPanel } from './GeRequirementsPanel';
 import { TermCard } from './TermCard';
 
 interface PlannerViewProps {
@@ -17,9 +12,12 @@ interface PlannerViewProps {
 export function PlannerView({ courses }: PlannerViewProps) {
   const {
     terms,
+    years,
     targetUnits,
     totalUnits,
-    addTerm,
+    toggleTerm,
+    addYear,
+    removeYear,
     removeTerm,
     addCourseToTerm,
     removeCourseFromTerm,
@@ -27,18 +25,9 @@ export function PlannerView({ courses }: PlannerViewProps) {
   } = usePlanner();
 
   const catalog = useMemo(() => dedupeCatalog(courses), [courses]);
-  const yearGroups = useMemo(() => groupByAcademicYear(terms), [terms]);
-
-  const [newYear, setNewYear] = useState(() => new Date().getFullYear());
-  const [newSession, setNewSession] = useState<Session>('Fall');
-  const [addTermMessage, setAddTermMessage] = useState<string | null>(null);
+  const yearGroups = useMemo(() => buildYearGroups(years, terms), [years, terms]);
 
   const progress = targetUnits > 0 ? Math.min(100, (totalUnits / targetUnits) * 100) : 0;
-
-  function handleAddTerm() {
-    const added = addTerm(newYear, newSession);
-    setAddTermMessage(added ? null : `${newSession} ${newYear} is already on your plan.`);
-  }
 
   return (
     <div className="planner">
@@ -65,34 +54,15 @@ export function PlannerView({ courses }: PlannerViewProps) {
           </div>
         </div>
 
-        <div className="add-term">
-          <label>
-            Year
-            <input
-              type="number"
-              value={newYear}
-              onChange={(e) => setNewYear(Number(e.target.value))}
-            />
-          </label>
-          <label>
-            Session
-            <select value={newSession} onChange={(e) => setNewSession(e.target.value as Session)}>
-              {SESSIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="button" onClick={handleAddTerm}>
-            + Add Term
-          </button>
-        </div>
+        <button type="button" className="add-year" onClick={addYear}>
+          + Add Year
+        </button>
       </div>
-      {addTermMessage && <p className="add-term-message">{addTermMessage}</p>}
+
+      <GeRequirementsPanel catalog={catalog} terms={terms} />
 
       {yearGroups.length === 0 ? (
-        <p className="empty-state">No terms yet — add one above to start planning.</p>
+        <p className="empty-state">No years yet — click + Add Year above to start planning.</p>
       ) : (
         yearGroups.map((group) => {
           const yearCourses = group.terms.reduce((sum, t) => sum + t.courses.length, 0);
@@ -110,19 +80,46 @@ export function PlannerView({ courses }: PlannerViewProps) {
                 <span className="year-header-stats">
                   {yearCourses} course{yearCourses === 1 ? '' : 's'} &middot; {yearUnits} units
                 </span>
+                {group.terms.length === 0 && (
+                  <button
+                    type="button"
+                    className="year-remove"
+                    onClick={() => removeYear(group.academicYear)}
+                    title="Remove year"
+                  >
+                    &times;
+                  </button>
+                )}
               </div>
-              <div className="term-row">
-                {group.terms.map((term) => (
-                  <TermCard
-                    key={term.id}
-                    term={term}
-                    catalog={catalog}
-                    onRemoveTerm={removeTerm}
-                    onAddCourse={addCourseToTerm}
-                    onRemoveCourse={removeCourseFromTerm}
-                  />
-                ))}
+              <div className="term-toggle-row">
+                {SESSIONS.map((session) => {
+                  const active = group.terms.some((t) => t.session === session);
+                  return (
+                    <button
+                      key={session}
+                      type="button"
+                      className={`term-toggle-chip ${active ? 'active' : ''}`}
+                      onClick={() => toggleTerm(group.academicYear, session)}
+                    >
+                      {session}
+                    </button>
+                  );
+                })}
               </div>
+              {group.terms.length > 0 && (
+                <div className="term-row">
+                  {group.terms.map((term) => (
+                    <TermCard
+                      key={term.id}
+                      term={term}
+                      catalog={catalog}
+                      onRemoveTerm={removeTerm}
+                      onAddCourse={addCourseToTerm}
+                      onRemoveCourse={removeCourseFromTerm}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })

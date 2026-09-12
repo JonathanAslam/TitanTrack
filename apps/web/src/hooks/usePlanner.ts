@@ -19,6 +19,7 @@ export interface PlannedCourse {
   courseNumber: string;
   title: string;
   units: number;
+  geCategories: string[];
 }
 
 export interface PlannedTerm {
@@ -31,6 +32,10 @@ export interface PlannedTerm {
 interface PersistedState {
   terms: PlannedTerm[];
   targetUnits: number;
+  /** Academic years the user has explicitly added, so an empty year can still be shown with its
+   *  term toggles before any term exists for it. Years implied by existing terms don't need to be
+   *  listed here — see the `years` derivation in usePlanner(). */
+  years: number[];
 }
 
 const STORAGE_KEY = 'titantrack.planner.v1';
@@ -43,7 +48,7 @@ function makeId(): string {
 }
 
 function defaultState(): PersistedState {
-  return { terms: [], targetUnits: DEFAULT_TARGET_UNITS };
+  return { terms: [], targetUnits: DEFAULT_TARGET_UNITS, years: [] };
 }
 
 function loadState(): PersistedState {
@@ -54,6 +59,7 @@ function loadState(): PersistedState {
     return {
       terms: parsed.terms ?? [],
       targetUnits: parsed.targetUnits ?? DEFAULT_TARGET_UNITS,
+      years: parsed.years ?? [],
     };
   } catch {
     return defaultState();
@@ -80,29 +86,25 @@ export interface AcademicYearGroup {
   terms: PlannedTerm[];
 }
 
-// Left-to-right display order within a year's row of term columns — Fall first, since that's
-// where the academic year starts, unlike sortTerms's calendar-chronological order used for totals.
-const DISPLAY_ORDER: Record<Session, number> = { Fall: 0, Winter: 1, Spring: 2, Summer: 3 };
-
 function academicYearOf(term: Pick<PlannedTerm, 'year' | 'session'>): number {
   return term.session === 'Fall' ? term.year : term.year - 1;
 }
 
-/** Groups terms into academic-year rows (Fall of year N through Summer of year N+1), each
- *  ordered Fall → Winter → Spring → Summer for side-by-side display. */
-export function groupByAcademicYear(terms: PlannedTerm[]): AcademicYearGroup[] {
-  const groups = new Map<number, PlannedTerm[]>();
+/** Builds one row per academic year in `years` (Fall of year N through Summer of year N+1), even
+ *  if a year has no terms yet — so its term toggles can still render. Within a year, `sortTerms`
+ *  already yields Fall → Winter → Spring → Summer, since Fall's calendar year is lower than the
+ *  others' (which are labeled with year N+1). */
+export function buildYearGroups(years: number[], terms: PlannedTerm[]): AcademicYearGroup[] {
+  const byYear = new Map<number, PlannedTerm[]>();
   for (const term of terms) {
     const key = academicYearOf(term);
-    const list = groups.get(key) ?? [];
-    list.push(term);
-    groups.set(key, list);
+    byYear.set(key, [...(byYear.get(key) ?? []), term]);
   }
-  return [...groups.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([academicYear, groupTerms]) => ({
+  return [...years]
+    .sort((a, b) => a - b)
+    .map((academicYear) => ({
       academicYear,
-      terms: [...groupTerms].sort((a, b) => DISPLAY_ORDER[a.session] - DISPLAY_ORDER[b.session]),
+      terms: sortTerms(byYear.get(academicYear) ?? []),
     }));
 }
 
@@ -112,6 +114,12 @@ export function usePlanner() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  // Union of explicitly-added years and years implied by existing terms, so old localStorage
+  // data (terms but no `years` array) still displays correctly with no migration step.
+  const years = [...new Set([...state.years, ...state.terms.map(academicYearOf)])].sort(
+    (a, b) => a - b,
+  );
 
   /** Returns false without changing state if that term already exists. */
   function addTerm(year: number, session: Session): boolean {
@@ -127,10 +135,37 @@ export function usePlanner() {
     setState((prev) => ({ ...prev, terms: prev.terms.filter((t) => t.id !== termId) }));
   }
 
+  /** Toggles the term for (academicYear, session) on or off — adds it if missing, removes it
+   *  (and its courses) if it already exists. */
+  function toggleTerm(academicYear: number, session: Session) {
+    const calendarYear = session === 'Fall' ? academicYear : academicYear + 1;
+    const existing = state.terms.find((t) => t.year === calendarYear && t.session === session);
+    if (existing) {
+      removeTerm(existing.id);
+    } else {
+      addTerm(calendarYear, session);
+    }
+  }
+
+  /** Appends the academic year after the latest one the user has (current calendar year if none
+   *  yet). Computed from the derived `years` below, not raw persisted state, so it can't silently
+   *  no-op by picking a year already implied by an existing term. */
+  function addYear() {
+    const latest = years.length ? Math.max(...years) : new Date().getFullYear() - 1;
+    setState((prev) => ({ ...prev, years: [...prev.years, latest + 1] }));
+  }
+
+  /** No-ops if any term still exists for that academic year — only an empty year is removable. */
+  function removeYear(academicYear: number) {
+    const hasTerms = state.terms.some((t) => academicYearOf(t) === academicYear);
+    if (hasTerms) return;
+    setState((prev) => ({ ...prev, years: prev.years.filter((y) => y !== academicYear) }));
+  }
+
   /** Returns false without changing state if that course is already on this term. */
   function addCourseToTerm(
     termId: string,
-    course: Pick<PlannedCourse, 'subject' | 'courseNumber' | 'title' | 'units'>,
+    course: Pick<PlannedCourse, 'subject' | 'courseNumber' | 'title' | 'units' | 'geCategories'>,
   ): boolean {
     const term = state.terms.find((t) => t.id === termId);
     const alreadyPlanned = term?.courses.some(
@@ -166,10 +201,14 @@ export function usePlanner() {
 
   return {
     terms: sortTerms(state.terms),
+    years,
     targetUnits: state.targetUnits,
     totalUnits,
     addTerm,
     removeTerm,
+    toggleTerm,
+    addYear,
+    removeYear,
     addCourseToTerm,
     removeCourseFromTerm,
     setTargetUnits,

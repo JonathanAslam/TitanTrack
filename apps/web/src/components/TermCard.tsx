@@ -56,6 +56,15 @@ export function TermCard({
                   </button>
                 </div>
                 <div className="term-course-title">{c.title}</div>
+                {c.geCategories.length > 0 && (
+                  <div className="ge-tags">
+                    {c.geCategories.map((ge) => (
+                      <span key={ge} className="ge-tag">
+                        {ge}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="units">{c.units} units</div>
               </li>
             ))}

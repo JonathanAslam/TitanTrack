@@ -49,6 +49,7 @@ export function AddCourseToTerm({ catalog, onAdd }: AddCourseToTermProps) {
       courseNumber: manualCourse.courseNumber.trim().toUpperCase(),
       title: manualCourse.title.trim(),
       units,
+      geCategories: [],
     });
     setMessage(added ? null : 'That course is already in this term.');
     if (added) setManualCourse(emptyManualCourse);
