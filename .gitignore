@@ -6,4 +6,4 @@ build/
 *.log
 .DS_Store
 todo.md
-packages/scraper/src/scraped-data.json
+# packages/scraper/src/scraped-data.json
