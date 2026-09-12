@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { courses, terms } from './data/courses';
+import { useCourseData } from './hooks/useCourseData';
 import { useSchedules } from './hooks/useSchedules';
 import { findConflicts, totalUnits, type ScheduledSection } from './lib/schedule';
 import { SearchPanel } from './components/SearchPanel';
@@ -8,6 +8,7 @@ import { ScheduleTabs } from './components/ScheduleTabs';
 import './App.css';
 
 function App() {
+  const { terms, courses, loading, error } = useCourseData();
   const {
     schedules,
     activeSchedule,
@@ -35,7 +36,7 @@ function App() {
         };
       })
       .filter((s): s is ScheduledSection => s !== null);
-  }, [activeSchedule]);
+  }, [activeSchedule, courses]);
 
   const conflictIds = useMemo(() => findConflicts(scheduledSections), [scheduledSections]);
   const units = useMemo(() => totalUnits(scheduledSections), [scheduledSections]);
@@ -50,32 +51,38 @@ function App() {
         <h1>TitanTrack</h1>
         <span className="term-label">{terms[0]?.name ?? 'No term selected'}</span>
       </header>
-      <div className="app-layout">
-        <SearchPanel courses={courses} addedSectionIds={addedSectionIds} onAdd={addSection} />
-        <div className="schedule-column">
-          <ScheduleTabs
-            schedules={schedules}
-            activeId={activeId}
-            onSwitch={switchSchedule}
-            onAdd={addSchedule}
-            onRemove={removeSchedule}
-            onRename={renameSchedule}
-          />
-          <div className="schedule-summary">
-            <span>{units} units</span>
-            {conflictIds.size > 0 && (
-              <span className="conflict-warning">
-                {conflictIds.size} section{conflictIds.size > 1 ? 's' : ''} conflicting
-              </span>
-            )}
+      {loading ? (
+        <div className="app-status">Loading courses…</div>
+      ) : error ? (
+        <div className="app-status app-status-error">Couldn't load course data: {error}</div>
+      ) : (
+        <div className="app-layout">
+          <SearchPanel courses={courses} addedSectionIds={addedSectionIds} onAdd={addSection} />
+          <div className="schedule-column">
+            <ScheduleTabs
+              schedules={schedules}
+              activeId={activeId}
+              onSwitch={switchSchedule}
+              onAdd={addSchedule}
+              onRemove={removeSchedule}
+              onRename={renameSchedule}
+            />
+            <div className="schedule-summary">
+              <span>{units} units</span>
+              {conflictIds.size > 0 && (
+                <span className="conflict-warning">
+                  {conflictIds.size} section{conflictIds.size > 1 ? 's' : ''} conflicting
+                </span>
+              )}
+            </div>
+            <ScheduleGrid
+              scheduledSections={scheduledSections}
+              conflictIds={conflictIds}
+              onRemove={removeSection}
+            />
           </div>
-          <ScheduleGrid
-            scheduledSections={scheduledSections}
-            conflictIds={conflictIds}
-            onRemove={removeSection}
-          />
         </div>
-      </div>
+      )}
     </div>
   );
 }

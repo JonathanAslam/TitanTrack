@@ -30,10 +30,10 @@ public Class Search (PeopleSoft/Campus Solutions, accessed via MyView / Titan On
       frontend dev isn't blocked on the scraper
 
 ## 2. Backend API
-- [ ] `GET /api/terms` — list available terms
-- [ ] `GET /api/courses?subject=&number=&title=&instructor=&ge=&term=` — search
-- [ ] `GET /api/courses/:id` — course + all sections
-- [ ] `GET /api/sections/:id/grades` — grade distribution (stretch, see §6)
+- [x] `GET /api/terms` — list available terms
+- [x] `GET /api/courses` — list all courses + sections (query-param search/filtering not yet implemented)
+- [x] `GET /api/courses/:id` — course + all sections
+- [x] `GET /api/sections/:id/grades` — route exists, returns `{ available: false }` until a grade-distribution data source is chosen (stretch, see §6)
 - [ ] Basic caching layer (courses don't change every second)
 
 ## 3. Frontend — core course search
@@ -70,8 +70,8 @@ public Class Search (PeopleSoft/Campus Solutions, accessed via MyView / Titan On
 - [ ] Domain + basic SEO (title/meta)
 
 ## Suggested build order
-1. Mock data + core search UI + schedule builder (fully working on fake data) ← **current status**
-2. Real backend + DB + API wired to mock data
+1. Mock data + core search UI + schedule builder (fully working on fake data)
+2. Real backend + DB + API wired to mock data ← **current status**
 3. Scraper replacing mock data with real CSUF sections
 4. Polish (conflict detection edge cases, saved schedules, unit counts)
 5. Stretch: map, grades, auth
@@ -81,7 +81,7 @@ public Class Search (PeopleSoft/Campus Solutions, accessed via MyView / Titan On
 ```
 apps/
   web/            React + TypeScript + Vite frontend
-  api/            Node + Express + TypeScript backend (stub, not yet wired)
+  api/            Node + Express + TypeScript backend, backed by Postgres
 packages/
   scraper/        Data pipeline + shared course/section schema (stub)
 ```
@@ -93,9 +93,15 @@ npm install
 npm run dev --workspace apps/web   # frontend dev server (mock data)
 ```
 
+Running `apps/api` outside Docker requires a reachable Postgres and a
+`DATABASE_URL` env var (see `docker-compose.yml` for the expected format).
+The API creates its tables and seeds them from `packages/scraper/src/mock-data.json`
+automatically on first run.
+
 ### Running with Docker
 
-Spins up the web frontend and API together, with source mounted for hot reload:
+Spins up the web frontend, API, and a Postgres database together, with source
+mounted for hot reload:
 
 ```bash
 docker compose up
@@ -103,5 +109,7 @@ docker compose up
 
 - Web: http://localhost:5173
 - API: http://localhost:3001/api/health
+- Postgres: localhost:5433 (mapped from the container's 5432 to avoid clashing with a local Postgres)
 
-`docker compose down` stops it. Rebuild after dependency changes with `docker compose build`.
+`docker compose down` stops it (add `-v` to also drop the Postgres volume).
+Rebuild after dependency changes with `docker compose build`.
