@@ -1,0 +1,147 @@
+{
+  "terms": [
+    {
+      "id": "2267",
+      "name": "Fall 2026"
+    }
+  ],
+  "courses": [
+    {
+      "id": "2267-cpsc-120a",
+      "termId": "2267",
+      "subject": "CPSC",
+      "courseNumber": "120A",
+      "title": "Introduction to Programming Lecture",
+      "units": 2,
+      "geCategories": [],
+      "description": "Introduction computer science and computer programming, including designing programs; sequential execution; variables, assignment and arithmetic; control flow, Boolean logic, selection and loops; input/output; functions; debugging; practical applications; and development methodologies. (50-minute lecture)",
+      "sections": [
+        {
+          "id": "18355",
+          "sectionNumber": "01-LEC",
+          "instructor": "Thomas Bettens",
+          "meetings": [
+            {
+              "days": [
+                "Mon",
+                "Wed"
+              ],
+              "startTime": "08:30",
+              "endTime": "09:20",
+              "location": "E 202 - Lecture Room"
+            }
+          ],
+          "seatsTotal": 60,
+          "seatsTaken": 55,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
+          "status": "open"
+        },
+        {
+          "id": "18356",
+          "sectionNumber": "02-LEC",
+          "instructor": "Thomas Bettens",
+          "meetings": [
+            {
+              "days": [
+                "Mon",
+                "Wed"
+              ],
+              "startTime": "09:30",
+              "endTime": "10:20",
+              "location": "E 202 - Lecture Room"
+            }
+          ],
+          "seatsTotal": 60,
+          "seatsTaken": 58,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
+          "status": "open"
+        },
+        {
+          "id": "18358",
+          "sectionNumber": "04-LEC",
+          "instructor": "Thomas Bettens",
+          "meetings": [
+            {
+              "days": [
+                "Mon",
+                "Wed"
+              ],
+              "startTime": "11:30",
+              "endTime": "12:20",
+              "location": "E 202 - Lecture Room"
+            }
+          ],
+          "seatsTotal": 60,
+          "seatsTaken": 59,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
+          "status": "open"
+        },
+        {
+          "id": "18360",
+          "sectionNumber": "06-LEC",
+          "instructor": "Thomas Bettens",
+          "meetings": [
+            {
+              "days": [
+                "Mon",
+                "Wed"
+              ],
+              "startTime": "13:30",
+              "endTime": "14:20",
+              "location": "E 202 - Lecture Room"
+            }
+          ],
+          "seatsTotal": 60,
+          "seatsTaken": 57,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
+          "status": "open"
+        }
+      ]
+    },
+    {
+      "id": "2267-cpsc-120l",
+      "termId": "2267",
+      "subject": "CPSC",
+      "courseNumber": "120L",
+      "title": "Introduction to Programming Lab",
+      "units": 1,
+      "geCategories": [],
+      "description": "Introduction to computer science and computer programming, including designing programs; sequential execution; variables, assignment and arithmetic; control flow, Boolean logic, selection and loops; input/output; functions; debugging; practical applications; and development methodologies.",
+      "sections": [
+        {
+          "id": "18283",
+          "sectionNumber": "01-LAB",
+          "instructor": "Thomas Bettens, Jiya Prashant Desai",
+          "meetings": [
+            {
+              "days": [
+                "Mon"
+              ],
+              "startTime": "14:00",
+              "endTime": "15:50",
+              "location": "MOD 109 - Computer Lab (PC)"
+            }
+          ],
+          "seatsTotal": 24,
+          "seatsTaken": 23,
+          "waitlistTotal": 0,
+          "waitlistTaken": 0,
+          "status": "open"
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "term": "Fall 2026",
+    "completedSubjects": [
+      "CPSC"
+    ],
+    "failedSubjects": [],
+    "updatedAt": "2026-09-13T03:04:53.125Z",
+    "complete": true
+  }
+}

@@ -50,6 +50,8 @@ export interface ScrapeOptions {
   headed?: boolean;
   /** Subject codes to skip entirely, e.g. ones already completed by a prior run being resumed. */
   skipSubjects?: string[];
+  /** Cap how many (non-skipped) subjects this run attempts, e.g. for chunking a full-catalog scrape. */
+  maxSubjects?: number;
   /** Called once the term dropdown match is resolved, before any subject is scraped. */
   onTermResolved?: (term: Term) => void;
   /** Called after each subject finishes (successfully or not) — use this for incremental/checkpointed writes. */
@@ -437,11 +439,14 @@ export async function scrapeCatalog(
       allSubjects
         ? subjectOptions
         : subjectOptions.filter((s) => subjects!.some((code) => code.toUpperCase() === s.code))
-    ).filter((s) => !skip.has(s.code.toUpperCase()));
+    )
+      .filter((s) => !skip.has(s.code.toUpperCase()))
+      .slice(0, options.maxSubjects ?? Infinity);
 
     onProgress?.(
       `Term: ${termOption.label} (${termOption.id}); subjects: ${targetSubjects.length}` +
-        (skip.size ? ` (${skip.size} skipped as already done)` : ''),
+        (skip.size ? ` (${skip.size} skipped as already done)` : '') +
+        (options.maxSubjects ? ` (capped at ${options.maxSubjects} per --max-subjects)` : ''),
     );
 
     const allCourses: Course[] = [];

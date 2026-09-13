@@ -41,9 +41,25 @@ function loadCheckpoint(outPath: string, term: string | undefined): OutputFile |
   if (!existsSync(outPath)) return null;
   try {
     const parsed = JSON.parse(readFileSync(outPath, 'utf-8')) as Partial<OutputFile>;
-    if (!parsed.meta || parsed.meta.term !== term || parsed.meta.complete) return null;
+    if (!parsed.meta) {
+      console.warn(`--resume: ${outPath} has no checkpoint metadata — starting fresh.`);
+      return null;
+    }
+    if (parsed.meta.term !== term) {
+      console.warn(
+        `--resume: checkpoint term "${parsed.meta.term}" != --term "${term}" — starting fresh.`,
+      );
+      return null;
+    }
+    if (parsed.meta.complete) {
+      console.warn(`--resume: checkpoint at ${outPath} is already complete — starting fresh.`);
+      return null;
+    }
     return parsed as OutputFile;
-  } catch {
+  } catch (err) {
+    console.warn(
+      `--resume: failed to parse ${outPath} (${(err as Error).message}) — starting fresh.`,
+    );
     return null;
   }
 }
@@ -54,9 +70,10 @@ async function main() {
   if (!args.subjects && !flags.has('all-subjects')) {
     console.error(
       'Usage: npm run scrape --workspace packages/scraper -- --subjects CPSC,PHIL [--term "Fall 2026"]\n' +
-        '  [--limit-per-subject 5] [--no-detail] [--delay-ms N] [--out path.json] [--resume]\n' +
+        '  [--limit-per-subject 5] [--no-detail] [--delay-ms N] [--out path.json] [--resume] [--max-subjects N]\n' +
         'Or pass --all-subjects to scrape every subject (slow, ~90 subjects — be polite about when you run this).\n' +
-        "  --resume  continue an interrupted run from --out's checkpoint, skipping completed subjects",
+        "  --resume        continue an interrupted run from --out's checkpoint, skipping completed subjects\n" +
+        '  --max-subjects  cap how many not-yet-completed subjects this run attempts (for chunking --all-subjects)',
     );
     process.exit(1);
   }
@@ -101,6 +118,7 @@ async function main() {
     delayMs: args['delay-ms'] ? Number(args['delay-ms']) : undefined,
     headed: flags.has('headed'),
     skipSubjects: completedSubjects,
+    maxSubjects: args['max-subjects'] ? Number(args['max-subjects']) : undefined,
     onProgress: (msg) => console.log(msg),
     onTermResolved: (resolvedTerm) => {
       terms = [resolvedTerm];

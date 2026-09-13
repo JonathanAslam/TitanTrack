@@ -64,6 +64,12 @@ CREATE TABLE IF NOT EXISTS meetings (
   end_time TEXT NOT NULL,
   location TEXT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_courses_subject_number ON courses(subject, course_number);
+CREATE INDEX IF NOT EXISTS idx_courses_term_id ON courses(term_id);
+CREATE INDEX IF NOT EXISTS idx_courses_ge_categories ON courses USING GIN(ge_categories);
+CREATE INDEX IF NOT EXISTS idx_sections_course_id ON sections(course_id);
+CREATE INDEX IF NOT EXISTS idx_meetings_section_id ON meetings(section_id);
 `;
 
 export async function initSchema(): Promise<void> {
