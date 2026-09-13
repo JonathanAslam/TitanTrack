@@ -22,10 +22,7 @@
           "instructor": "Thomas Bettens",
           "meetings": [
             {
-              "days": [
-                "Mon",
-                "Wed"
-              ],
+              "days": ["Mon", "Wed"],
               "startTime": "08:30",
               "endTime": "09:20",
               "location": "E 202 - Lecture Room"
@@ -43,10 +40,7 @@
           "instructor": "Thomas Bettens",
           "meetings": [
             {
-              "days": [
-                "Mon",
-                "Wed"
-              ],
+              "days": ["Mon", "Wed"],
               "startTime": "09:30",
               "endTime": "10:20",
               "location": "E 202 - Lecture Room"
@@ -64,10 +58,7 @@
           "instructor": "Thomas Bettens",
           "meetings": [
             {
-              "days": [
-                "Mon",
-                "Wed"
-              ],
+              "days": ["Mon", "Wed"],
               "startTime": "11:30",
               "endTime": "12:20",
               "location": "E 202 - Lecture Room"
@@ -85,10 +76,7 @@
           "instructor": "Thomas Bettens",
           "meetings": [
             {
-              "days": [
-                "Mon",
-                "Wed"
-              ],
+              "days": ["Mon", "Wed"],
               "startTime": "13:30",
               "endTime": "14:20",
               "location": "E 202 - Lecture Room"
@@ -118,9 +106,7 @@
           "instructor": "Thomas Bettens, Jiya Prashant Desai",
           "meetings": [
             {
-              "days": [
-                "Mon"
-              ],
+              "days": ["Mon"],
               "startTime": "14:00",
               "endTime": "15:50",
               "location": "MOD 109 - Computer Lab (PC)"
@@ -137,9 +123,7 @@
   ],
   "meta": {
     "term": "Fall 2026",
-    "completedSubjects": [
-      "CPSC"
-    ],
+    "completedSubjects": ["CPSC"],
     "failedSubjects": [],
     "updatedAt": "2026-09-13T03:04:53.125Z",
     "complete": true
