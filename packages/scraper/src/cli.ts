@@ -32,6 +32,10 @@ interface OutputFile {
     term: string | undefined;
     completedSubjects: string[];
     failedSubjects: string[];
+    /** Subjects whose "over 50 classes" confirmation never dismisses (see OversizedSubjectError) —
+     *  permanently excluded from --resume/--max-subjects, unlike failedSubjects which keep retrying.
+     *  Needs manual data entry; see todo.md. */
+    oversizedSubjects: string[];
     updatedAt: string;
     complete: boolean;
   };
@@ -92,6 +96,9 @@ async function main() {
 
   const courses: Course[] = checkpoint ? [...checkpoint.courses] : [];
   const completedSubjects: string[] = checkpoint ? [...checkpoint.meta.completedSubjects] : [];
+  const oversizedSubjects: string[] = checkpoint
+    ? [...(checkpoint.meta.oversizedSubjects ?? [])]
+    : [];
   let terms: Term[] = checkpoint?.terms ?? [];
 
   const writeCheckpoint = (complete: boolean, failedSubjects: string[]) => {
@@ -102,6 +109,7 @@ async function main() {
         term: args.term,
         completedSubjects,
         failedSubjects,
+        oversizedSubjects,
         updatedAt: new Date().toISOString(),
         complete,
       },
@@ -117,14 +125,18 @@ async function main() {
     fetchDetails: !flags.has('no-detail'),
     delayMs: args['delay-ms'] ? Number(args['delay-ms']) : undefined,
     headed: flags.has('headed'),
-    skipSubjects: completedSubjects,
+    // Oversized subjects are a permanent, non-retryable terminal state (see OversizedSubjectError)
+    // — skip them just like completed ones so --resume/--max-subjects never wastes time on them.
+    skipSubjects: [...completedSubjects, ...oversizedSubjects],
     maxSubjects: args['max-subjects'] ? Number(args['max-subjects']) : undefined,
     onProgress: (msg) => console.log(msg),
     onTermResolved: (resolvedTerm) => {
       terms = [resolvedTerm];
     },
-    onSubjectComplete: ({ subject, courses: subjectCourses, error }) => {
-      if (!error) {
+    onSubjectComplete: ({ subject, courses: subjectCourses, error, oversized }) => {
+      if (oversized) {
+        oversizedSubjects.push(subject.code);
+      } else if (!error) {
         courses.push(...subjectCourses);
         completedSubjects.push(subject.code);
       }
@@ -144,6 +156,12 @@ async function main() {
     console.log(
       `${result.failedSubjects.length} subject(s) failed and were skipped: ${result.failedSubjects.join(', ')}\n` +
         `Re-run with the same --out and --resume to retry just those.`,
+    );
+  }
+  if (result.oversizedSubjects.length) {
+    console.log(
+      `${result.oversizedSubjects.length} subject(s) exceed the search result limit and need manual ` +
+        `data entry (won't be retried automatically): ${result.oversizedSubjects.join(', ')}`,
     );
   }
 }

@@ -59,8 +59,26 @@ export interface ScrapeOptions {
     subject: SubjectOption;
     courses: Course[];
     error?: Error;
+    oversized?: boolean;
   }) => void | Promise<void>;
   onProgress?: (message: string) => void;
+}
+
+/**
+ * Thrown when a subject's "Your search will return over 50 classes, would you like to continue?"
+ * confirmation never actually dismisses — confirmed live (2026-09) via network monitoring that no
+ * postback fires no matter how it's clicked (mouse, keyboard, direct JS call, real Chrome instead
+ * of bundled Chromium), while a real human browser on the same network gets through instantly. Not
+ * retryable: waiting longer or retrying the click never resolves it (tested up to 60s / 15 clicks),
+ * so callers should route this straight to manual handling instead of burning retry budget on it.
+ */
+export class OversizedSubjectError extends Error {
+  constructor(subjectCode: string) {
+    super(
+      `Subject ${subjectCode} exceeds the search result limit and its confirmation dialog never dismisses automatically.`,
+    );
+    this.name = 'OversizedSubjectError';
+  }
 }
 
 function parseDays(daysToken: string): Day[] {
@@ -125,6 +143,7 @@ async function withRetry<T>(
     try {
       return await fn();
     } catch (err) {
+      if (err instanceof OversizedSubjectError) throw err; // not retryable, see its own doc comment
       lastErr = err;
       if (attempt <= retries) {
         onProgress?.(
@@ -236,9 +255,13 @@ async function fetchClassDetail(
     return await withRetry(
       async () => {
         await link.click();
-        await page.waitForFunction(() => document.body.innerText.includes('Class Detail'), {
-          timeout: 20000,
-        });
+        await page.waitForFunction(
+          () => document.body.innerText.includes('Class Detail'),
+          undefined,
+          {
+            timeout: 20000,
+          },
+        );
 
         const detail = await page.evaluate(() => {
           const text = (id: string) => document.getElementById(id)?.textContent?.trim() ?? '';
@@ -256,9 +279,11 @@ async function fetchClassDetail(
         });
 
         await page.click('#CLASS_SRCH_WRK2_SSR_PB_BACK');
-        await page.waitForFunction(() => /class section\(s\) found/.test(document.body.innerText), {
-          timeout: 20000,
-        });
+        await page.waitForFunction(
+          () => /class section\(s\) found/.test(document.body.innerText),
+          undefined,
+          { timeout: 20000 },
+        );
         return detail;
       },
       { retries: 1, label: `class detail for row ${rowIndex}`, onProgress: opts.onProgress },
@@ -300,22 +325,40 @@ export async function scrapeSubject(
         await page.click('[id^="CLASS_SRCH_WRK2_SSR_PB_CLASS_SRCH"]');
         await page.waitForTimeout(1200);
 
-        // "Your search will return over N classes" confirmation — only appears for large result sets.
+        // "Your search will return over N classes" confirmation — only appears for large result
+        // sets. For most such subjects (e.g. MATH's 260 sections) clicking OK dismisses it within
+        // a couple of seconds. For a handful of especially large subjects (confirmed live: ART,
+        // and likely BIOL/CHEM), it never dismisses no matter how it's clicked — see
+        // OversizedSubjectError's doc comment. Detect that case fast (a few seconds) rather than
+        // waiting out the full results timeout on every retry.
+        let hadConfirmDialog = false;
         try {
           await page.waitForSelector('input[value="OK"]', { timeout: 3000 });
-          await page.click('input[value="OK"]');
+          hadConfirmDialog = true;
         } catch {
           // no confirmation dialog — small result set
+        }
+        if (hadConfirmDialog) {
+          await page.click('input[value="OK"]');
+          await page.waitForTimeout(5000);
+          const stillWarning = await page.evaluate(() =>
+            /over \d+ classes/i.test(document.body.innerText),
+          );
+          if (stillWarning) throw new OversizedSubjectError(subjectCode);
         }
 
         return Promise.race([
           page
-            .waitForFunction(() => /class section\(s\) found/.test(document.body.innerText), {
-              timeout: 20000,
-            })
+            .waitForFunction(
+              () => /class section\(s\) found/.test(document.body.innerText),
+              undefined,
+              {
+                timeout: 20000,
+              },
+            )
             .then(() => true),
           page
-            .waitForFunction(() => /no classes found/i.test(document.body.innerText), {
+            .waitForFunction(() => /no classes found/i.test(document.body.innerText), undefined, {
               timeout: 20000,
             })
             .then(() => false),
@@ -400,9 +443,12 @@ export async function scrapeSubject(
   return [...coursesByKey.values()];
 }
 
-export async function scrapeCatalog(
-  options: ScrapeOptions,
-): Promise<{ terms: Term[]; courses: Course[]; failedSubjects: string[] }> {
+export async function scrapeCatalog(options: ScrapeOptions): Promise<{
+  terms: Term[];
+  courses: Course[];
+  failedSubjects: string[];
+  oversizedSubjects: string[];
+}> {
   const {
     term,
     subjects,
@@ -451,6 +497,7 @@ export async function scrapeCatalog(
 
     const allCourses: Course[] = [];
     const failedSubjects: string[] = [];
+    const oversizedSubjects: string[] = [];
     for (const subject of targetSubjects) {
       onProgress?.(`Scraping ${subject.code} — ${subject.label}...`);
       try {
@@ -470,11 +517,19 @@ export async function scrapeCatalog(
         allCourses.push(...courses);
         await onSubjectComplete?.({ subject, courses });
       } catch (err) {
-        onProgress?.(
-          `  giving up on subject ${subject.code} after retries, skipping it: ${(err as Error).message}`,
-        );
-        failedSubjects.push(subject.code);
-        await onSubjectComplete?.({ subject, courses: [], error: err as Error });
+        if (err instanceof OversizedSubjectError) {
+          onProgress?.(
+            `  ${subject.code} exceeds the search result limit — needs manual data entry, skipping permanently.`,
+          );
+          oversizedSubjects.push(subject.code);
+          await onSubjectComplete?.({ subject, courses: [], oversized: true });
+        } else {
+          onProgress?.(
+            `  giving up on subject ${subject.code} after retries, skipping it: ${(err as Error).message}`,
+          );
+          failedSubjects.push(subject.code);
+          await onSubjectComplete?.({ subject, courses: [], error: err as Error });
+        }
       }
       await page.waitForTimeout(options.delayMs ?? 400);
     }
@@ -484,11 +539,17 @@ export async function scrapeCatalog(
         `Done with failures — subjects that could not be scraped: ${failedSubjects.join(', ')}`,
       );
     }
+    if (oversizedSubjects.length) {
+      onProgress?.(
+        `Subjects exceeding the search result limit (need manual data entry): ${oversizedSubjects.join(', ')}`,
+      );
+    }
 
     return {
       terms: [{ id: termOption.id, name: termOption.label }],
       courses: allCourses,
       failedSubjects,
+      oversizedSubjects,
     };
   } finally {
     await browser.close();
